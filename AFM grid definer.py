@@ -1,129 +1,87 @@
-import dearpygui.dearpygui as dpg
-import math as m
-
-# This code will define a samlpe grid for a bruker AFM automation file
-
-dpg.create_context()
-
-default_x_grid_size = 100
-default_y_grid_size = 100
-default_x_interval = 10
-default_y_interval = 10
-default_x_offset = 0
-default_y_offset = 0
-
-seriesx = []
-seriesy = []
-for i in range(default_x_offset, default_x_offset+default_x_grid_size+default_x_interval, default_x_interval):
-    for j in range(default_y_offset, default_y_offset+default_y_grid_size+default_y_interval, default_y_interval):
-        seriesx.append(i)
-        seriesy.append(j)
+import dearpygui.dearpygui as dpg, os
 
 def update_series():
-
-    # Retrieve the current values of the sliders
-    x_grid_size_value = int(dpg.get_value(x_grid_size))
-    y_grid_size_value = int(dpg.get_value(y_grid_size))
-    x_interval_value = int(dpg.get_value(x_interval))
-    y_interval_value = int(dpg.get_value(y_interval))
-    x_offset_value = int(dpg.get_value(x_offset))
-    y_offset_value = int(dpg.get_value(y_offset))
-
-    newx = []
-    newy = []
-    for i in range(x_offset_value, x_offset_value+x_grid_size_value+x_interval_value, x_interval_value):
-        for j in range(y_offset_value, y_offset_value+y_grid_size_value+y_interval_value, y_interval_value):
-            newx.append(i)
-            newy.append(j)
+    x_size, y_size = int(dpg.get_value(x_grid_size)), int(dpg.get_value(y_grid_size))
+    x_int, y_int = int(dpg.get_value(x_interval)), int(dpg.get_value(y_interval))
+    x_off, y_off = int(dpg.get_value(x_offset)), int(dpg.get_value(y_offset))
+    x_dir, y_dir = {'Top Right': (1, 1), 'Top Left': (-1, 1), 
+                    'Bottom Left': (-1, -1), 'Bottom Right': (1, -1)}[dpg.get_value('quadrant')]
+    newx, newy = zip(*[(x_dir * i, y_dir * j) 
+                       for i in range(x_off, x_off + x_size + x_int, x_int) 
+                       for j in range(y_off, y_off + y_size + y_int, y_int)])
     dpg.set_value('series_tag', [newx, newy])
-
-    # Update the number of sampling points dynamically
-    num_points = len(range(0, x_grid_size_value, x_interval_value)) * len(range(0, y_grid_size_value, y_interval_value))
-    dpg.set_value("num_points_text", f"Number of Sampling Points: {num_points}")
-
+    dpg.set_value("num_points_text", f"Number of Sampling Points: {len(newx)}")
     return zip(newx, newy)
 
-
-# Callback functions to update sliders from input fields
-def update_x_grid_size(sender, app_data):
-    dpg.set_value(x_grid_size, app_data)
+def update_value(sender, app_data, user_data):
+    dpg.set_value(user_data, app_data)
     update_series()
 
-def update_y_grid_size(sender, app_data):
-    dpg.set_value(y_grid_size, app_data)
-    update_series()
+def output_program(sender, app_data, user_data):
+    mode = "x" if not os.path.exists(f'{file_name}.pgm') else "w"
+    with open(f'{file_name}.pgm', mode) as f:
+        f.write("Version: 1.0")
+        f.writelines(f"\\X point: {coord[0]*1000}\n\\Y point: {coord[1]*1000}\n\\Z point: {dpg.get_value(default_z)}\n\\Coordinate System: 0\n" for coord in update_series())
 
-def update_x_interval(sender, app_data):
-    dpg.set_value(x_interval, app_data)
-    update_series()
+# def save_file_callback(sender, app_data, user_data):
+#     if app_data:
+#         file_path = app_data['file_path_name']
 
-def update_y_interval(sender, app_data):
-    dpg.set_value(y_interval, app_data)
-    update_series()
+#         print(f"File saved to: {file_path}")
 
-def output_program():
-    try:
-        with open("Sampling Grid.pgm", "x") as f:
-            f.write("Version: 1.0")
-            for coord in update_series():
-                f.write(f"\\X point: {coord[0]*1000}\n")
-                f.write(f"\\Y point: {coord[1]*1000}\n")
-                f.write(f"\\Z point: {dpg.get_value(default_z)}\n")
-                f.write(f"\\Coordinate System: 0\n")
-    except:
-        with open("Sampling Grid.pgm", "w") as f:
-            f.write("Version: 1.0")
-            for coord in update_series():
-                f.write(f"\\X point: {coord[0]*1000}\n")
-                f.write(f"\\Y point: {coord[1]*1000}\n")
-                f.write(f"\\Z point: {dpg.get_value(default_z)}\n")
-                f.write(f"\\Coordinate System: 0\n")
+# def show_save_dialog_callback():
+#     dpg.show_item(FILE_DIALOG_TAG)
 
-with dpg.window(label='grid', tag="Primary Window"):
-    with dpg.table(header_row=False):
-        dpg.add_table_column()
-        dpg.add_table_column()
-        dpg.add_table_column()
-        with dpg.table_row():
-            x_grid_size = dpg.add_slider_float(label="x grid size", default_value=default_x_grid_size, callback=update_series)
-            x_grid_size_input = dpg.add_input_int(label='set x grid size', default_value=default_x_grid_size, callback=update_x_grid_size, on_enter=True)
-            x_offset = dpg.add_input_int(label='set x offset', default_value=default_x_offset, callback=update_series, on_enter=True)
-        with dpg.table_row():
-            y_grid_size = dpg.add_slider_float(label="y grid size", default_value=default_y_grid_size, callback=update_series)
-            y_grid_size_input = dpg.add_input_int(label='set y grid size', default_value=default_y_grid_size, callback=update_y_grid_size, on_enter=True)
-            y_offset = dpg.add_input_int(label='set y offset', default_value=default_y_offset, callback=update_series, on_enter=True)
-        with dpg.table_row():
-            x_interval = dpg.add_slider_float(label="x interval", default_value=default_x_interval, callback=update_series)
-            x_interval_input = dpg.add_input_int(label='set x interval', default_value=default_x_interval, callback=update_x_interval, on_enter=True)
-            default_z = dpg.add_input_int(label='default z', default_value=-19000)
-        with dpg.table_row():
-            y_interval = dpg.add_slider_float(label="y interval", default_value=default_y_interval, callback=update_series)
-            y_interval_input = dpg.add_input_int(label='set y interval', default_value=default_y_interval, callback=update_y_interval, on_enter=True)
-            generate_program = dpg.add_button(label='Generate Program', callback=output_program)
+if __name__ == "__main__":
+    dpg.create_context()
+    FILE_DIALOG_TAG = "file_dialog_tag"
+    TEXT_EDITOR_TAG = "text_editor_tag"
+    file_name, quadrants = 'deafult_sampling_grid', ['Top Right', 'Top Left', 'Bottom Left', 'Bottom Right']
+    defaults = {'x_size': 100, 'y_size': 100, 'x_int': 10, 'y_int': 10, 'x_off': 0, 'y_off': 0, 'z': -19000}
+    newx, newy = zip(*[(i, j) 
+                       for i in range(defaults['x_off'], defaults['x_off'] + defaults['x_size'] + defaults['x_int'], defaults['x_int']) 
+                       for j in range(defaults['y_off'], defaults['y_off'] + defaults['y_size'] + defaults['y_int'], defaults['y_int'])])
 
-    with dpg.group(width=1000, height=1000):
-        with dpg.plot(label="Sample Grid"):
-            # optionally create legend
-            dpg.add_plot_legend()
+    with dpg.viewport_menu_bar():
+        with dpg.menu(label="File"):
+            dpg.add_menu_item(label="Save Program", callback=output_program)
+            dpg.add_menu_item(label="Save Program As", callback=output_program)
+    
+    # with dpg.file_dialog(directory_selector=False,show=False,callback=save_file_callback,tag=FILE_DIALOG_TAG,width=700,height=400,default_path=".", file_extensions=[".pgm", ".*"]):
+    #     pass
 
-            # REQUIRED: create x and y axes
-            dpg.add_plot_axis(dpg.mvXAxis, label="x (mm)")
-            dpg.add_plot_axis(dpg.mvYAxis, label="y (mm)", tag="y_axis")
+    with dpg.window(label='grid', tag="Primary Window"):
+        with dpg.table(header_row=False):
+            dpg.add_table_column(), dpg.add_table_column(), dpg.add_table_column()
+            with dpg.table_row():
+                x_grid_size = dpg.add_slider_float(label="x grid size", default_value=defaults['x_size'], callback=update_series)
+                x_grid_size_input = dpg.add_input_int(label='set x grid size', default_value=defaults['x_size'], callback=update_value, on_enter=True, user_data=x_grid_size)
+                x_offset = dpg.add_input_int(label='set x offset', default_value=defaults['x_off'], callback=update_series, on_enter=True)
+            with dpg.table_row():
+                y_grid_size = dpg.add_slider_float(label="y grid size", default_value=defaults['y_size'], callback=update_series)
+                y_grid_size_input = dpg.add_input_int(label='set y grid size', default_value=defaults['y_size'], callback=update_value, on_enter=True, user_data=y_grid_size)
+                y_offset = dpg.add_input_int(label='set y offset', default_value=defaults['y_off'], callback=update_series, on_enter=True)
+            with dpg.table_row():
+                x_interval = dpg.add_slider_float(label="x interval", default_value=defaults['x_int'], callback=update_series)
+                x_interval_input = dpg.add_input_int(label='set x interval', default_value=defaults['x_int'], callback=update_value, on_enter=True, user_data=x_interval)
+                default_z = dpg.add_input_int(label='default z', default_value=-19000)
+            with dpg.table_row():
+                y_interval = dpg.add_slider_float(label="y interval", default_value=defaults['y_int'], callback=update_series)
+                y_interval_input = dpg.add_input_int(label='set y interval', default_value=defaults['y_int'], callback=update_value, on_enter=True, user_data=y_interval)
+                quadrant = dpg.add_combo(items=quadrants, label='Sampling quadrant', default_value='Top Right', callback=update_series, tag='quadrant')
 
-            # series belong to a y axis
-            dpg.add_scatter_series(seriesx, seriesy, label="grid", parent="y_axis", tag='series_tag')
+        with dpg.group(width=1070, height=1000):
+            with dpg.plot(label="Sample Grid"):
+                dpg.add_plot_legend()
+                dpg.add_plot_axis(dpg.mvXAxis, label="x (mm)")
+                dpg.add_plot_axis(dpg.mvYAxis, label="y (mm)", tag="y_axis")
+                dpg.add_scatter_series(newx, newy, label="grid", parent="y_axis", tag='series_tag')
 
-    with dpg.group(width=100, height=100):
-        dpg.add_text(f"Number of Sampling Points: {len(seriesx) * len(seriesy)}", tag="num_points_text")
+        with dpg.group(width=100, height=100):
+            dpg.add_text(f"Number of Sampling Points: {len(newx)}", tag="num_points_text")
 
-    print(dpg.get_value(x_grid_size))
-    print(dpg.get_value(y_grid_size))
-    print(dpg.get_value(x_interval))
-    print(dpg.get_value(y_interval))
-
-
-dpg.create_viewport(title='AFM grid definer', width=1100, height=1200)
-dpg.setup_dearpygui()
-dpg.show_viewport()
-dpg.start_dearpygui()
-dpg.destroy_context()
+    dpg.create_viewport(title='AFM grid definer', width=1100, height=1250)
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    dpg.start_dearpygui()
+    dpg.destroy_context()
