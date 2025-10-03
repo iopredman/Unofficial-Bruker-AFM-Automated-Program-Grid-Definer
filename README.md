@@ -3,8 +3,8 @@ This script creates a GUI which lets you modify a grid of points in the XY coord
 
 Modules needed to run:
 dearpygui
-math
+os
 
 To-do: 
--Add buttons to shift the origin to any of the 4 corners of the grid, or placed at the center
+-Add to shift origin to center placed at the center
 -Add a random sampling mode
